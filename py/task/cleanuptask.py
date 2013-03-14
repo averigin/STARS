@@ -39,7 +39,7 @@ class CleanupTask(ControlTask):
 
 	def execute(self):
 		self.state = FAIL
-		if system( 'stat %s/ &> /dev/null' % self._root ) == 0:
+		if system( 'stat %s/ > /dev/null 2>&1' % self._root ) == 0:
 
 			rmtree( self._root + '/', ignore_errors=True )
 			self.display( OUTPUT_LOGIC, 'process %d resources removed.' % self._owner )

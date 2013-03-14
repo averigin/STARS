@@ -74,12 +74,12 @@ class RandomTestTask(Task):
 		if r < 0.90:
 			Task.subprocess(self, cmdline, path)
 		else:
-			system('touch %s/%s.pid &> /dev/null' % ( self._root, str(r) ) )
-			while not system( 'stat %s/%s.kill &> /dev/null' )  == 0:
+			system('touch %s/%s.pid > /dev/null 2>&1' % ( self._root, str(r) ) )
+			while not system( 'stat %s/%s.kill > /dev/null 2>&1' )  == 0:
 				sleep(0.25)
 
 			if r < 0.95:
-				system('rm %s/%s.* &> /dev/null' % ( self._root, str(r) ) )
+				system('rm %s/%s.* > /dev/null 2>&1' % ( self._root, str(r) ) )
 			else:
 				self.display('faking un responsive process')
 """

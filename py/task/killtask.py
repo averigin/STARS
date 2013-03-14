@@ -59,14 +59,14 @@ class KillTask(ControlTask):
 						fi.close()
 				
 						if info == str(self._target):
-							if system( 'touch %s/%s.kill &> /dev/null' % ( self._root, f.split('.')[0] ) ) == 0:
+							if system( 'touch %s/%s.kill > /dev/null 2>&1' % ( self._root, f.split('.')[0] ) ) == 0:
 								self.display( OUTPUT_DEBUG, 'task %s asked to terminate.' % str(self._target) )
 								self.state = SUCCESS
 
 						t = time()
-						while system( 'stat %s/%s.kill &> /dev/null' % ( self._root, f.split('.')[0] ) ) == 0:
+						while system( 'stat %s/%s.kill > /dev/null 2>&1' % ( self._root, f.split('.')[0] ) ) == 0:
 						
-							if not system( 'stat %s/%s.pid &> /dev/null' % ( self._root, f.split('.')[0] ) ) == 0:
+							if not system( 'stat %s/%s.pid > /dev/null 2>&1' % ( self._root, f.split('.')[0] ) ) == 0:
 								self.display( OUTPUT_DEBUG, 'task %s ended before termination' % info )
 								break
 

@@ -94,16 +94,16 @@ def runningCheck():
     stop = False
     try:
         display( OUTPUT_MINOR, 'Checking for already running instance' )
-        if system( 'stat testing &> /dev/null' ) == 0:
+        if system( 'stat testing > /dev/null 2>&1' ) == 0:
             display( OUTPUT_MINOR, 'starting framework in testing mode' )
         else:
-            if system( 'stat .pid &> /dev/null' ) == 0:
+            if system( 'stat .pid > /dev/null 2>&1' ) == 0:
                 fid = open( '.pid' )
                 rpid = int(fid.read())
                 fid.close()
 
                 display( OUTPUT_MINOR, 'run record found, checking for process %d' % rpid )
-                cmdline = 'top -b -n 1 -d 0 | grep -E "%d %s .* pyMPI" &> /dev/null' % ( rpid, environ['USER'] )
+                cmdline = 'top -b -n 1 -d 0 | grep -E "%d %s .* pyMPI" > /dev/null 2>&1' % ( rpid, environ['USER'] )
 
                 #display( OUTPUT_DEBUG, cmdline )
                 rcode = system( cmdline )

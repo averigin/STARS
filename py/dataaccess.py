@@ -58,7 +58,7 @@ class DataAccess(object):
 			if 'StrictHostKeyChecking' in self._config['dataaccess']:
 				strict = True
 
-		if system( 'stat %s/hostname &> /dev/null' % environ['STARSPATH'] ) == 0:
+		if system( 'stat %s/hostname > /dev/null 2>&1' % environ['STARSPATH'] ) == 0:
 			f = open( environ['STARSPATH'] + '/hostname' )
 			self._host = f.read().strip()
 			f.close()
@@ -117,7 +117,7 @@ class DataAccess(object):
 
                 display( OUTPUT_DEBUG, "running: %s" % cmdline )
 
-                if 0 == system( cmdline + ' &> /dev/null' ):
+                if 0 == system( cmdline + ' > /dev/null 2>&1' ):
                         result = True
 
 		if result:
@@ -139,7 +139,7 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, 'running: %s' % cmdline )
 
-		if 0 == system( cmdline + ' &> /dev/null' ):
+		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
 			display( OUTPUT_MINOR, "removed %s" % fileName )
 
 	def retrieve(self,subPath,filePath,fileName):
@@ -156,7 +156,7 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 		
-		if 0 == system( cmdline + ' &> /dev/null' ):
+		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
 			display( OUTPUT_MINOR, "retrieved file %s from store:%s/" % ( fileName, subPath ) )
 			result = True
 
@@ -174,7 +174,7 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 
-		if 0 == system( cmdline + ' &> /dev/null' ):
+		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
 			display( OUTPUT_MINOR, "deployed file %s to %s:%s" % ( fileName, destHost, destPath ) )
 			result = True
 		return result
@@ -189,7 +189,7 @@ class DataAccess(object):
 
 		self.touchPath( None, filePath )
 
-		if 0 == system( cmdline + ' &> /dev/null' ):
+		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
 			display( OUTPUT_MINOR, "collected file %s/%s from %s:%s" % ( filePath, fileName, srcHost, srcPath ) )
 			result = True
 		return result
@@ -205,7 +205,7 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 
-		if 0 == system( cmdline + ' &> /dev/null' ):
+		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
 			display( OUTPUT_DEBUG, "found file %s in store:%s/" % ( fileName, subPath ) )
 			result = True
 		return result
@@ -222,5 +222,5 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 		
-		if 0 == system( cmdline + ' &> /dev/null' ):
+		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
 			display( OUTPUT_DEBUG, "touched %s" % filePath )

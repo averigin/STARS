@@ -66,10 +66,10 @@ class MPINode:
 		self._workers = {}
 		
 		self._cpu_cores = cpu_count()
-		if 0 == system( 'stat cpu_ht &> /dev/null' ):
+		if 0 == system( 'stat cpu_ht > /dev/null 2>&1' ):
 			self._cpu_cores = int(cpu_count()/2)
 			self.display( OUTPUT_DEBUG, 'cpus have HT lowering to %d cpus' % self._cpu_cores )
-		elif 0 == system( 'stat cpu_one &> /dev/null' ):
+		elif 0 == system( 'stat cpu_one > /dev/null 2>&1' ):
 			self._cpu_cores = 1
 			self.display( OUTPUT_DEBUG, 'altering detected %d cpus to %d cpus' % ( cpu_count(), self._cpu_cores ) )
 

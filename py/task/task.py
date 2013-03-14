@@ -184,7 +184,7 @@ class Task(Message):
 				self.display( OUTPUT_DEBUG, 'start polling for task finish or kill' )
 				#while system() == 0:
 				while p.poll() == None:
-					if system( 'stat %s/%d.kill &> /dev/null' % ( self._root, pid ) ) == 0:
+					if system( 'stat %s/%d.kill > /dev/null 2>&1' % ( self._root, pid ) ) == 0:
 						self.display( OUTPUT_DEBUG, 'trying to shut down all child processes for pid %d' % pid ) 
 						system( 'ps -o pid= --ppid %d | xargs kill -9' % pid )
 						p.kill()
@@ -210,7 +210,7 @@ class Task(Message):
 			rcode = None
 		
 		if not pid == None:
-			system( 'rm %s/%d.* &> /dev/null' % ( self._root, pid ) )
+			system( 'rm %s/%d.* > /dev/null 2>&1' % ( self._root, pid ) )
 		
 		
 		return rcode
