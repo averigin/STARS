@@ -42,8 +42,8 @@ for file in "$@"; do
 	WORKFILE="$( basename "$file" )"
 
 	if [ -n "$RHOST" ]; then
-		scp "$file" "$RHOST:$DPATH/work/$WORKFILE.tmp" || die "Unable to send workfile to managment node"
-		ssh "$RHOST" "mv '$DPATH/work/$WORKFILE.tmp $DPATH/work/$WORKFILE'" || die "Failed to submit workfile"
+		scp "$file" "$RHOST:$DPATH/work/.$WORKFILE" || die "Unable to send workfile to managment node"
+		ssh "$RHOST" "mv '$DPATH/work/.$WORKFILE $DPATH/work/$WORKFILE'" || die "Failed to submit workfile"
 	else
 		stat "$file" || die "Unable to send workfile to managment node"
 		cp "$file" "$DPATH/work/" || die "Failed to submit workfile"
