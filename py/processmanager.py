@@ -14,6 +14,8 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 
+import os
+import sys
 from sys import path
 from os import mkdir, getcwd, chdir, listdir, environ, system, remove
 from shutil import move, rmtree
@@ -188,20 +190,22 @@ class ProcessManager(object):
 
 						config['general']['localresources'] = '%s/%s' % ( getcwd(), split( config['general']['resources'] )[1] )
 
-						files = listdir( config['general']['modulepath'] )
-
-						if path.count( getcwd() ) == 0:
+						if sys.path.count( getcwd() ) == 0:
 							procpath = getcwd() + '/' + config['general']['modulepath']
 							path.insert( 0, procpath )
 							self.display( OUTPUT_DEBUG, 'updated module path to include %s' % procpath )
 
-						#for f in files:
-						#	if f.endswith( '.py' ):
-						#		move( config['general']['modulepath'] + '/' + f, './' )
-						#		self.display( OUTPUT_DEBUG, 'moved %s into process cache' % f )
-						
-						#self.display( OUTPUT_DEBUG, 'files in process directory' )
-						#system( 'ls -al' )
+						files = listdir( config['general']['modulepath'] )
+
+						if 'load_order' in files:
+							self.display( OUTPUT_MINOR, 'using custom module loading order' )
+
+							file_name = os.path.join( getcwd(), config['general']['modulepath'], 'load_order' )
+							order_file = open(file_name, 'r')
+							try:
+								files = [l.strip() for l in order_file.readlines() if l.strip() and not l.startswith('#')]
+							finally:
+								order_file.close()
 
 						# reload the module so we have the latest copy
 						for f in files:
@@ -211,7 +215,7 @@ class ProcessManager(object):
 								#print f.split('.')[0]
 								module = __import__( f.split('.')[0] )
 								reload( module )
-								self.display( OUTPUT_DEBUG, 'loaded module %s' % f.split('.')[0] )
+								self.display( OUTPUT_DEBUG, '(re)loaded module %s' % f.split('.')[0] )
 
 						#rmtree( dirname(config['general']['modulepath']), ignore_errors = True )
 
