@@ -129,7 +129,7 @@ class MatlabTask(Task):
 			cmdline = './matlab_run analyzeParameter %s' % (self._script_name )
 		else:
 			cmdline = './matlab_run combineParameters %s' % (self._script_name )
-		rcode = self.subprocess( cmdline + ' &> aout-%s-%d.log' % ( self._config_name, self._par ), path )
+		rcode = self.subprocess( cmdline + ' > aout-%s-%d.log 2>&1' % ( self._config_name, self._par ), path )
 		
 		name = None
 		self._result = []
@@ -140,7 +140,7 @@ class MatlabTask(Task):
 		if rcode == 0:
 			self.state = SUCCESS
 			self.addResult( '%s/ana' % self._config_name, self._root, name_output )
-			#if 0 == system( 'stat %s/%s_p%d.dat &> /dev/null' % ( path, self._config_name, self._par ) ):
+			#if 0 == system( 'stat %s/%s_p%d.dat > /dev/null 2>&1' % ( path, self._config_name, self._par ) ):
 			#	f = open( '%s/%s_p%d.dat' % ( path, self._config_name, self._par ), 'r' )
 			#	self._more_runs = int( f.readline() )
 			#	f.close()
@@ -148,17 +148,17 @@ class MatlabTask(Task):
 			#	name_output = 'aout-%s-%d' % ( self._config_name, self._par )
 			#	system( 'mv %s/%s.log %s/%s' % ( self._root, name_output, self._root, name_output) )
 				
-			#	if 0 == system( 'stat %s/cache/%s_p%d.mat &> /dev/null' % ( path, self._config_name, self._par ) ):
+			#	if 0 == system( 'stat %s/cache/%s_p%d.mat > /dev/null 2>&1' % ( path, self._config_name, self._par ) ):
 			#		path = '%s/cache' % path
 			#		name = '%s_p%d.mat' % ( self._config_name, self._par )
 			#		self.addResult( '%s/ana' % self._config_name, path, name )
 
-			#elif self._par > 0 and 0 == system( 'stat %s/cache/%s_p%d.mat &> /dev/null' % ( path, self._config_name, self._par ) ):
+			#elif self._par > 0 and 0 == system( 'stat %s/cache/%s_p%d.mat > /dev/null 2>&1' % ( path, self._config_name, self._par ) ):
 			#	path = '%s/cache' % path
 			#	name = '%s_p%d.mat' % ( self._config_name, self._par )
 			#	self.addResult( '%s/ana' % self._config_name, path, name )
 
-			#elif self._par == 0 and 0 == system( 'stat %s/cache/%s.mat &> /dev/null' % ( path, self._config_name ) ):
+			#elif self._par == 0 and 0 == system( 'stat %s/cache/%s.mat > /dev/null 2>&1' % ( path, self._config_name ) ):
 			#	path = '%s/cache' % path
 			#	name = '%s.mat' % self._config_name
 			#	self.addResult( '', path, name )

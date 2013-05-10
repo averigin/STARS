@@ -21,6 +21,7 @@ from multiprocessing import Pool, cpu_count, Pipe
 from multiprocessing.reduction import reduce_connection
 from sys import path
 from os import environ, listdir
+import os.path
 
 import pickle
 
@@ -39,6 +40,17 @@ def handle_task(ppipe):
 			path.insert( 0, root )
 
 		files = listdir( root )
+
+		if 'load_order' in files:
+			display( OUTPUT_MINOR, 'using custom module loading order' )
+
+			file_name = os.path.join( root, 'load_order' )
+			order_file = open(file_name, 'r')
+			try:
+				files = [l.strip() for l in order_file.readlines() if l.strip() and not l.startswith('#')]
+			finally:
+				order_file.close()
+
 		for f in files:
 			#print f
 			if f.endswith( '.py' ):

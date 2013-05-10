@@ -28,7 +28,7 @@ class Timer:
 		self._timers = {}
 		self._times = []
 		self._name = name
-		cmdline = 'stat log/tout-%s.log &> /dev/null' % name
+		cmdline = 'stat log/tout-%s.log > /dev/null 2>&1' % name
 		if 0 == system( cmdline ):
 			cmdline = 'rm -rf log/tout-%s.log > /dev/null' % name
 			system( cmdline )

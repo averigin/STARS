@@ -41,7 +41,7 @@ class WestGridProcess(Process):
 			if 'key' in self.__config__['process']:
 				self.__key__ = self.__config__['process']['key']
 			else:
-				if 0 == system( 'touch ~/.ssh/id_rsa &> /dev/null' ):
+				if 0 == system( 'touch ~/.ssh/id_rsa > /dev/null 2>&1' ):
 					self.__key__ = '~/.ssh/id_rsa'
 				else:
 					raise Exception('WestGridProcess','required field [process]:key="~/.ssh/id_rsa" not found in workfile')

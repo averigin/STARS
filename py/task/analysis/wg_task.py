@@ -36,7 +36,7 @@ class WG_Task(Task):
 			if 'key' in self._config['process']:
 				self.__key__ = self._config['process']['key']
 			else:
-				if 0 == system( 'stat ~/.ssh/id_rsa &> /dev/null' ):
+				if 0 == system( 'stat ~/.ssh/id_rsa > /dev/null 2>&1' ):
 					self.__key__ = '~/.ssh/id_rsa'
 				else:
 					raise Exception('WG_Task','required field [process]:key="~/.ssh/id_rsa" not found in workfile')
@@ -47,7 +47,7 @@ class WG_Task(Task):
 		ssh_o = '-i %s -o StrictHostKeyChecking=no' % self.__key__
 		cmdline = 'ssh %s@%s %s "%s"' % ( self.__user__, self.__host__, ssh_o, cmdline )
 		if not outfile == None:
-			cmdline = '%s &> %s' % ( cmdline, outfile )
+			cmdline = '%s > %s  2>&1' % ( cmdline, outfile )
 		else:
-			cmdline = '%s &> wgout-%s.log' % ( cmdline, self.id() )
+			cmdline = '%s > wgout-%s.log 2>&1' % ( cmdline, self.id() )
 		return system( cmdline )

@@ -103,7 +103,7 @@ class SurfaceTask(Task):
 			cmdline = './matlab_run surfaceParameter %s' % (self._script_name )
 		else:
 			cmdline = 'exit 1'
-		rcode = self.subprocess( cmdline + ' &> sout-%s-%d.log' % ( self._config_name, self._par ), path )
+		rcode = self.subprocess( cmdline + ' > sout-%s-%d.log 2>&1' % ( self._config_name, self._par ), path )
 		
 		name = None
 		self._result = []
@@ -113,7 +113,7 @@ class SurfaceTask(Task):
 
 		if rcode == 0:
 			self.state = SUCCESS
-			if self._par > 0 and 0 == system( 'stat %s/cache/%s_s%d.mat &> /dev/null' % ( path, self._config_name, self._par ) ):
+			if self._par > 0 and 0 == system( 'stat %s/cache/%s_s%d.mat > /dev/null 2>&1' % ( path, self._config_name, self._par ) ):
 				path = '%s/cache' % path
 				name = '%s_s%d.mat' % ( self._config_name, self._par )
 				self.addResult( '%s/sur' % self._config_name, path, name )

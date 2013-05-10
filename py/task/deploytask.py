@@ -81,7 +81,7 @@ class DeployTask(ControlTask):
 			if 'modulepath' in self._config['general']:
 				files = listdir( self._root + '/' + self._config['general']['modulepath'] )
 				for f in files:
-					if f.endswith( '.py' ):
+					if f.endswith( '.py' ) or f == 'load_order':
 						move( self._root + '/' + self._config['general']['modulepath'] + '/' + f, self._root )
 
 				if path.count( self._root ) == 0:

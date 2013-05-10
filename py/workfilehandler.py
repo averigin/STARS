@@ -133,6 +133,8 @@ class WorkfileHandler(object):
 
 		if fname.startswith('.'):
 			return None
+		elif fname.endswith( '.tmp' ):
+			return None
 		elif fname.endswith( '.loaded' ):
 			return None
 		elif fname.endswith('.invalid' ):
