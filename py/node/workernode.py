@@ -61,6 +61,8 @@ def handle_task(ppipe):
 
 		display( OUTPUT_DEBUG, 'process pool running task %s' % task.id() )
 		task.execute()
+		if hasattr(task, 'cleanup'):
+			task.cleanup()
 
 		if path.count( root ) > 0:
 			display( OUTPUT_DEBUG, 'removing path from process' )

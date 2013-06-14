@@ -20,10 +20,11 @@ from time import time
 from os import listdir, remove, mkdir, path, rename, getcwd, chdir
 from sys import exc_info
 
-from util import *
+from util import OUTPUT_DEBUG, OUTPUT_ERROR
 
 from task import Task, NEW, FAIL, SUCCESS, ERROR
 from controltask import ControlTask
+from analysistask import AnalysisTask
 
 from processmanager import ProcessManager
 from resourcemanager import ResourceManager
@@ -81,16 +82,16 @@ class ManagerNode(MPINode):
 						self.send( task, task.destination )
 
 					else:
-						
 						if not task.key in self._waiting:
 
 							#self._workers[task.destination]['slots'] = self._workers[task.destination]['slots'] - task.slots
 							#self.display( OUTPUT_DEBUG, 'slots: %d, task used %d' % (self._workers[task.destination]['slots'], task.slots) )
 
-							if self._workers[task.destination]['proc'].count( task.pid ) > 0:
+							if task.pid in self._workers[task.destination]['proc']:
+								if isinstance( task, AnalysisTask ):
+									self.setupAnalysisTask( task )
 								self.display( OUTPUT_DEBUG, 'sending task to worker' )
 								self.send( task, task.destination )
-
 							else:
 								self.display( OUTPUT_DEBUG, 'holding task untill resource deployment is complete' )
 								self._waiting[ task.key ] = task
@@ -99,6 +100,8 @@ class ManagerNode(MPINode):
 
 						elif self._workers[task.destination]['proc'].count( task.pid ) > 0:
 							del self._waiting[task.key]
+							if isinstance( task, AnalysisTask ):
+								self.setupAnalysisTask( task )
 							self.display( OUTPUT_DEBUG, 'sending task to worker' )
 							self.send( task, task.destination )
 
@@ -134,15 +137,21 @@ class ManagerNode(MPINode):
 					self.returnTask( task )
 		else:
 			self.display( OUTPUT_ERROR, 'got invalid task to handle' )
-					
+
 		return result
-		
+
+	def setupAnalysisTask(self, task):
+		worker_id = task.destination
+		worker_name = self.workers[worker_id]['name']
+
+		task.setup( worker_id, worker_name )
+
 	def finish(self):
 		self._iw.step()
 		MPINode.finish(self)
 
 	def poll_handler(self, obj):
 		obj.step()
-		
+
 		return False
 

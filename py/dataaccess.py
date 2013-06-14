@@ -14,8 +14,9 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 from os import environ
+import os.path as path
 
-from util import *
+from util import display, system, OUTPUT_MINOR, OUTPUT_DEBUG
 
 class DataAccess(object):
 
@@ -68,7 +69,7 @@ class DataAccess(object):
 
 		if not strict:
 			self._ssh_o = '-o StrictHostKeyChecking=no'
-		if key == None:
+		if key is not None:
 			self._shh_o = '-i %s %s' % ( key, self._ssh_o )
 
 	def setStore(self, storeHost, storePath, storeGlobal):
@@ -112,7 +113,7 @@ class DataAccess(object):
 					display( OUTPUT_DEBUG, "data_access.store remote file, local store" )
                                         cmdline = "scp %s %s/%s %s:%s/%s/" % ( self._ssh_o, filePath, fileName, self._store_host, self._store_path, subPath )
 
-		display( OUTPUT_DEBUG, 'data_access' )                
+		display( OUTPUT_DEBUG, 'data_access' )
 		self.touchPath( self._store_host, "%s/%s" % (self._store_path, subPath) )
 
                 display( OUTPUT_DEBUG, "running: %s" % cmdline )
@@ -144,7 +145,7 @@ class DataAccess(object):
 
 	def retrieve(self,subPath,filePath,fileName):
 		cmdline = "exit 1"
-		
+
 		result = False
 
 		if self._global:
@@ -155,7 +156,7 @@ class DataAccess(object):
 		self.touchPath( None, filePath )
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
-		
+
 		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
 			display( OUTPUT_MINOR, "retrieved file %s from store:%s/" % ( fileName, subPath ) )
 			result = True
@@ -176,6 +177,24 @@ class DataAccess(object):
 
 		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
 			display( OUTPUT_MINOR, "deployed file %s to %s:%s" % ( fileName, destHost, destPath ) )
+			result = True
+		return result
+
+	def deploy_direct(self,srcHost,srcPath,srcName,destHost,destPath,destName):
+		cmdline = 'exit 1'
+		result = False
+		if self._global:
+			cmdline = "cp %s/%s %s/%s" % ( srcPath, srcName, destPath, destName )
+		else:
+			opts = self._ssh_o
+			cmdline = "ssh %(opts)s %(destHost)s 'scp %(srcHost)s:%(srcPath)s/%(srcName)s %(destPath)s/%(destName)s'" % locals()
+
+		self.touchPath( destHost, destPath )
+
+		display( OUTPUT_DEBUG, "running: %s" % cmdline )
+
+		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
+			display( OUTPUT_MINOR, "deployed file %s:%s/%s to %s:%s" % ( srcHost, srcPath, srcName, destHost, destPath ) )
 			result = True
 		return result
 
@@ -221,6 +240,6 @@ class DataAccess(object):
 			cmdline = "ssh %s %s 'mkdir -p %s'" % ( self._ssh_o, fileHost, filePath )
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
-		
+
 		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
 			display( OUTPUT_DEBUG, "touched %s" % filePath )
