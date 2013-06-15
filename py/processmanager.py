@@ -273,13 +273,13 @@ class ProcessManager(object):
 					break
 		return ctask
 
-	def nextTask(self,pid):
+	def nextTask(self,pid, slots_available):
 		task = None
 		if pid in self._tracking:
 			info = self._tracking[pid]
 			if info['state'] == PROC_READY:
 				self.display( OUTPUT_VERBOSE, 'process %d is running, asking for task' % pid )
-				task = self._task( pid )
+				task = self._task( pid, slots_available )
 
 		return task
 
@@ -378,14 +378,14 @@ class ProcessManager(object):
 
 		return result
 
-	def _task(self,pid):
+	def _task(self, pid, slots_available):
 
 		task = None
 
 		if pid in self._procs:
 			info = self._tracking[pid]
 			try:
-				task = self._procs[pid].task()
+				task = self._procs[pid].getTask(slots_available)
 				if isinstance( task, Task ):
 					task.pid = pid
 					task.key = self._newkey

@@ -56,13 +56,13 @@ class ResourceManager:
 
 		self.display( OUTPUT_VERBOSE, 'initialized' )
 
-	def _nextTask(self):
+	def _nextTask(self, slots_available):
 		task = None
 		pid = True
 		while not pid == None:
 			pid = self._pm.nextProc()
 			if not pid == None:
-				task = self._pm.nextTask( pid )
+				task = self._pm.nextTask( pid, slots_available )
 				if isinstance( task, Task ):
 
 					if not pid in self._tracking:
@@ -181,11 +181,15 @@ class ResourceManager:
 
 	def _issueTask(self):
 		if self._availableWorker():
-			task = self._nextTask()
+			slots_available = self._maxSlotsAvailable()
+
+			task = self._nextTask(slots_available)
 			if isinstance( task, Task ):
 				# place recovery here?
 				pid = task.pid
 				wid = self._selectWorker( task )
+				if wid is None:
+					return
 				if wid in self._frmk.workers.keys():
 
 					pinfo = self._tracking[pid]
@@ -235,6 +239,9 @@ class ResourceManager:
 					break
 		return result
 
+	def _maxSlotsAvailable(self):
+		return max( worker['slots'] for worker in self._frmk.workers.values() )
+
 	def _selectWorker(self,task):
 		"""
 		Select the best worker for the given task.
@@ -243,65 +250,56 @@ class ResourceManager:
 
 		Favours workers that are already deployed to and are idle
 		"""
-		pid = task.pid
-		slots = task.slots
 
-		mfslot = None
-		
-		result = None
-		
-		for wid in self._frmk.workers.keys():
-			winfo = self._frmk.workers[wid]
-			pinfo = self._tracking[pid]
+		pid = task.pid
+		required_slots = task.slots
+
+		# NOTE: None always evaluates less than any number
+		best_deployed_worker = {'free_slots' : None, 'worker_id' : None}
+		best_undeployed_worker = {'free_slots' : None, 'worker_id' : None}
+
+		for worker_id in self._frmk.workers.keys():
+			worker_info = self._frmk.workers[worker_id]
 
 			# never select a reserved worker
-			if winfo['reserved']:
+			if worker_info['reserved']:
 				continue
 
-			# never pick fully loaded workers
-			if winfo['slots'] <= 0:
+			available_slots = worker_info['slots']
+			if available_slots < required_slots:
 				continue
+
+			free_slots = available_slots - required_slots
 
 			# choose the most available worker with task resources setup
-			if winfo['proc'].count( pid ) > 0:
-				fslot = winfo['slots'] - slots
-				if mfslot == None or mfslot < fslot:
-					mfslot = fslot
-					result = wid
+			if pid in worker_info['proc']:
+				if best_deployed_worker.get('free_slots') < free_slots:
+					best_deployed_worker['free_slots'] = free_slots
+					best_deployed_worker['worker_id'] = worker_id
+			# choose the most available worker without task resources setup
+			else:
+				if best_undeployed_worker.get('free_slots') < free_slots:
+					best_undeployed_worker['free_slots'] = free_slots
+					best_undeployed_worker['worker_id'] = worker_id
 
-		
-		# if no workers have the task resources
-		if result == None:
-			mfslot = None
-			# find the most free worker
-			for wid in self._frmk.workers.keys():
-				winfo = self._frmk.workers[wid]
+		if best_deployed_worker['worker_id'] is not None:
+			result = best_deployed_worker['worker_id']
+		elif best_undeployed_worker['worker_id'] is not None:
+			result = best_undeployed_worker['worker_id']
+		else:
+			result = None
 
-				# skip reserved workers
-				if winfo['reserved']:
-					continue
-
-				# skip fully loaded workers
-				if winfo['slots'] <= 0:
-					continue
-
-				# pick the worker with the most free slots after task assignment
-				fslot = winfo['slots'] - slots
-				if mfslot == None or mfslot < fslot:
-					mfslot = fslot
-					result = wid
-
-		if not result == None:
+		if result is not None:
 			self.display( OUTPUT_DEBUG, 'selected worker %d' % result )
 		else:
 			self.display( OUTPUT_DEBUG, 'failed to select worker' )
-			
+
 		return result
 
 	def reserveWorker(self, wid):
 		"""
 		Reserve a worker to the exclusion of all processes.
-	
+
 		This allows dynamic restriction of resources without needing a stop/start
 		"""
 		if wid in self._frmk.workers:

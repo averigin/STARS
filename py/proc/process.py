@@ -91,22 +91,25 @@ class Process(object):
 	def id(self):
 		return self.__id__
 
-	def getTask(self):
+	def getTask(self, slots_available):
 		task = None
 
 		if not self.state == PROC_ERROR:
-			if len( self.tasks ) > 0:
-				task = self.tasks.pop(0)
-				self.out[task.id()] = task
+			if self.tasks:
+				if self.tasks[0].slots <= slots_available:
+					task = self.tasks.pop(0)
+					self.out[task.id()] = task
+				else:
+					self.display( OUTPUT_LOGIC, 'Not enough slots for current task' )
 			else:
-				self.display( OUTPUT_MINOR, 'no current tasks, checking sub-processes for tasks' )
+				self.display( OUTPUT_LOGIC, 'no current tasks, checking sub-processes for tasks' )
 				for p in range(0, len(self.__sub_procs__) ):
 					proc = self.sub_procs[p]
 					if proc.state == PROC_DONE:
 						continue
 
 					if proc.state == PROC_READY:
-						task = proc.getTask()
+						task = proc.getTask(slots_available)
 						break
 					
 		if not task == None:
@@ -213,7 +216,3 @@ class Process(object):
 	def peek(self):
 		self.display( OUTPUT_DEBUG, 'peek is depricated' )
 		#raise Exception('process','peek is a depricated function')
-
-	def task(self):
-		return self.getTask()
-
