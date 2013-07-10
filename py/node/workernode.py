@@ -14,19 +14,16 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 
-from mpinode import MPINode, rank
-from task import Task, NEW, FAIL, SUCCESS, ERROR
-from controltask import ControlTask
-from multiprocessing import Pool, cpu_count, Pipe
+from multiprocessing import Pool, Pipe
 from multiprocessing.reduction import reduce_connection
-from sys import path
-from os import environ, listdir
-import os.path
-
+from os import listdir, path
 import pickle
+import sys
 
-
-from util import *
+from controltask import ControlTask
+from mpinode import MPINode
+from task import Task, NEW, ERROR
+from util import display, displayExcept, unique_values, OUTPUT_ERROR, OUTPUT_MINOR, OUTPUT_DEBUG
 
 def handle_task(ppipe):
 	display( OUTPUT_DEBUG, 'unpickling the connection' )
@@ -35,21 +32,20 @@ def handle_task(ppipe):
 	task = None
 	try:
 		root = pipe.recv()
-		if path.count( root ) == 0:
+		if sys.path.count( root ) == 0:
 			display( OUTPUT_DEBUG, 'updated path' )
-			path.insert( 0, root )
+			sys.path.insert( 0, root )
 
-		files = listdir( root )
+		files = listdir(root)
 
 		if 'load_order' in files:
 			display( OUTPUT_MINOR, 'using custom module loading order' )
 
-			file_name = os.path.join( root, 'load_order' )
-			order_file = open(file_name, 'r')
-			try:
-				files = [l.strip() for l in order_file.readlines() if l.strip() and not l.startswith('#')]
-			finally:
-				order_file.close()
+			file_name = path.join( root, 'load_order' )
+			with open(file_name, 'r') as order_file:
+				ordered_files = [ l.strip() for l in order_file.readlines() if l.strip() and not l.startswith('#') ]
+
+			files = unique_values(ordered_files + files)
 
 		for f in files:
 			#print f
@@ -64,9 +60,9 @@ def handle_task(ppipe):
 		if hasattr(task, 'cleanup'):
 			task.cleanup()
 
-		if path.count( root ) > 0:
+		if sys.path.count( root ) > 0:
 			display( OUTPUT_DEBUG, 'removing path from process' )
-			path.remove( root )
+			sys.path.remove( root )
 
 	except:
 		displayExcept()

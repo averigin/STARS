@@ -14,24 +14,16 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 
-import os
+from os import chdir, environ, getcwd, listdir, mkdir, path, system
+from shutil import  rmtree
 import sys
-from sys import path
-from os import mkdir, getcwd, chdir, listdir, environ, system, remove
-from shutil import move, rmtree
-from tarfile import TarFile
-from os.path import dirname, split
-from time import time, asctime
-from task import Task, NEW, SUCCESS, ERROR, WAIT
+from time import time
 
 from dataaccess import DataAccess
-
-from controltask import ControlTask
-from process import PROC_READY, PROC_WAIT, PROC_ERROR, PROC_DONE, PROC_STOP
-
-from util import *
-
-
+from process import PROC_READY, PROC_ERROR, PROC_DONE, PROC_STOP
+from task import Task, SUCCESS, ERROR
+from util import display, displayExcept, unique_values, OUTPUT_ERROR,\
+	OUTPUT_MAJOR, OUTPUT_MINOR, OUTPUT_LOGIC, OUTPUT_DEBUG, OUTPUT_VERBOSE
 
 MAX_PROC = 100
 
@@ -166,17 +158,17 @@ class ProcessManager(object):
 				fileName = None
 				if len( temp ) == 1:
 
-					srcPath = dirname(temp[0])
-					fileName = split(temp[0])[1]
+					srcPath = path.dirname(temp[0])
+					fileName = path.split(temp[0])[1]
 
 				elif len( temp ) == 2:
 					srcHost = temp[0]
-					srcPath = dirname(temp[1])
-					fileName = split(temp[1])[1]
+					srcPath = path.dirname(temp[1])
+					fileName = path.split(temp[1])[1]
 
 				if self._data_access.collect( getcwd(), fileName, srcHost, srcPath, fileName ):
 
-					fname = split( config['general']['resources'] )[1]
+					fname = path.split( config['general']['resources'] )[1]
 
 					self.display( OUTPUT_DEBUG, 'trying to decompress %s' % fname )
 
@@ -188,24 +180,23 @@ class ProcessManager(object):
 						#self.display( OUTPUT_DEBUG, 'files in process directory' )
 						#system( 'ls -al' )
 
-						config['general']['localresources'] = '%s/%s' % ( getcwd(), split( config['general']['resources'] )[1] )
+						config['general']['localresources'] = '%s/%s' % ( getcwd(), path.split( config['general']['resources'] )[1] )
 
 						if sys.path.count( getcwd() ) == 0:
-							procpath = getcwd() + '/' + config['general']['modulepath']
-							path.insert( 0, procpath )
+							procpath = path.join(getcwd(), config['general']['modulepath'])
+							sys.path.insert( 0, procpath )
 							self.display( OUTPUT_DEBUG, 'updated module path to include %s' % procpath )
 
-						files = listdir( config['general']['modulepath'] )
+						files = listdir(config['general']['modulepath'])
 
 						if 'load_order' in files:
 							self.display( OUTPUT_MINOR, 'using custom module loading order' )
 
-							file_name = os.path.join( getcwd(), config['general']['modulepath'], 'load_order' )
-							order_file = open(file_name, 'r')
-							try:
-								files = [l.strip() for l in order_file.readlines() if l.strip() and not l.startswith('#')]
-							finally:
-								order_file.close()
+							file_name = path.join( config['general']['modulepath'], 'load_order' )
+							with open(file_name, 'r') as order_file:
+								ordered_files = [ l.strip() for l in order_file.readlines() if l.strip() and not l.startswith('#') ]
+
+							files = unique_values(ordered_files + files)
 
 						# reload the module so we have the latest copy
 						for f in files:
@@ -254,9 +245,9 @@ class ProcessManager(object):
 			self.display( OUTPUT_ERROR, 'failed to create process' )
 
 		if not load and not procpath == None:
-			if path.count( procpath ) > 0:
+			if sys.path.count( procpath ) > 0:
 				display( OUTPUT_DEBUG, 'removing path from process' )
-				path.remove( procpath )
+				sys.path.remove( procpath )
 
 		return proc
 

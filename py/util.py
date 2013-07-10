@@ -185,3 +185,10 @@ def loadConfig( fileName ):
 		order = order + 1
 
 	return config
+
+def unique_values(iterable):
+	iterable_class = iterable.__class__
+
+	seen = set()
+	seen_add = seen.add
+	return iterable_class( [f for f in iterable if f not in seen and not seen_add(f)] )
