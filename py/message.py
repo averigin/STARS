@@ -29,6 +29,7 @@ class Message(object):
 	_destination = None
 	_task = None
 	_worker = None
+	_worker_hostname = None
 	_hostname = None
 	_bcast = False
 
@@ -41,7 +42,7 @@ class Message(object):
 		if self._statemembers == None:
 			self._statemembers = []
 
-		self._statemembers.extend( ['sender','destination','_task','worker','hostname','bcast','owner'] )
+		self._statemembers.extend( ['sender','destination','_task','worker','worker_hostname','hostname','bcast','owner'] )
 
 		if len( args ) >= 1:
 			self.display( OUTPUT_DEBUG, 'calling initializer for Message' )
@@ -57,6 +58,7 @@ class Message(object):
 		self.sender = None
 		self._task = None
 		self.worker = None
+		self.worker_hostname = None
 		self.hostname = None
 		self.bcast = False
 		self.display( OUTPUT_DEBUG, 'finished initializer for Message' )
@@ -139,3 +141,11 @@ class Message(object):
 	@worker.setter
 	def worker(self,value):
 		self._worker = value
+
+	@property
+	def worker_hostname(self):
+		return self._worker_hostname
+	
+	@worker_hostname.setter
+	def worker_hostname(self,value):
+		self._worker_hostname = value

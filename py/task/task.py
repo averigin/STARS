@@ -14,19 +14,15 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
 
-from time import time, asctime, sleep
-from message import Message
-from os import environ, system, getcwd
-from subprocess import Popen, PIPE
-
+from os import environ, path, system
 from mpi import rank
+from subprocess import Popen
+from time import time, sleep
 
-from traceback import print_tb
-from sys import exc_info
-			
 from dataaccess import DataAccess
+from message import Message
+from util import display, displayExcept, OUTPUT_ERROR, OUTPUT_MINOR, OUTPUT_DEBUG
 
-from util import *
 
 INVALID = -1
 NEW = 0
@@ -41,7 +37,7 @@ class Task(Message):
 	_key = None
 	_pid = None
 
-	_result = None
+	_results = None
 	_start = None
 	_state = None
 	#_failed = None
@@ -64,7 +60,7 @@ class Task(Message):
 		if self._statemembers == None:
 			self._statemembers = []
 
-		self._statemembers.extend( ['_result','_id','key','pid','_ready','state','_start','_root','slots','_taskname','_config'] )
+		self._statemembers.extend( ['_results','_logs','_id','key','pid','_ready','state','_start','_root','slots','_taskname','_config'] )
 
 		Message.__init__(self, *args, **kwargs )
 
@@ -87,7 +83,8 @@ class Task(Message):
 
 	def _initTask(self, owner, tid, config):
 		self._config = config
-		self._result = None
+		self._results = []
+		self._logs = []
 		self._id = "%s%d" % ( self.__class__.__name__, tid)
 		self.key = None
 		self.pid = owner
@@ -95,7 +92,6 @@ class Task(Message):
 		#self.failed = 0
 		self.state = NEW
 		self._start = time()
-		self._result = []
 		self._root = "%s/dep/%d/%s" % (environ['STARSPATH'], rank, str(owner) )
 		self.slots = 1
 
@@ -107,36 +103,70 @@ class Task(Message):
 	def target(self):
 		return self._taskname
 
+	def get_store_dir(self):
+		if self.state == ERROR:
+			return 'failed'
+		else:
+			return 'completed'
+
 	def recover(self):
+		if not self._results:
+			return False
 
-		success = len( self._result ) > 0		
+		display( OUTPUT_MINOR, 'Attempting to recover' )
 
-		for s,h,p,f in self._result:
+		success = True
+		for (directory, filename, store_dir) in self._results:
 			try:
-				success = self._data_access.checkStore( s, f ) and success
+				if not store_dir:
+					store_dir = self.get_store_dir()
+				if not self._data_access.checkStore( store_dir, filename ):
+					self.display( OUTPUT_DEBUG, 'Expected result missing: %s' % filename )
+					success = False
+					break
 			except:
 				success = False
+				break
 
 		if success:
 			self.state = SUCCESS
-			self._result = []
-			self.display( OUTPUT_MINOR, 'recovered results' )
+			del self._results[:]
+			self.display( OUTPUT_MINOR, 'Recovered results' )
+		else:
+			self.display( OUTPUT_MINOR, 'Task could not be recovered' )
 
 		return success
 
 	def store(self):
-
 		success = True
-		self.display( OUTPUT_DEBUG, 'results %s' % str( self._result ) )
-		for s,h,p,f in self._result:
-			self.display( OUTPUT_DEBUG, 's %s h %s p %s f %s' % ( s,h,p,f ) )
+
+		host = self.worker_hostname
+
+		self.display( OUTPUT_DEBUG, 'logs: %r' % self._logs )
+		for (directory, filename, store_dir) in self._logs:
 			try:
-				success = self._data_access.store( s,h,p,f ) and success
+				if not store_dir:
+					store_dir = self.get_store_dir()
+				self.display( OUTPUT_DEBUG, 'Storing log: %s:%s -> %s' % (host, path.join(directory, filename), path.join(store_dir,filename)))
+				self._data_access.store( store_dir, host, directory, filename )
+			except:
+				# Ignore any errors
+				pass
+			self._data_access.remove(host, directory, filename)
+
+		self.display( OUTPUT_DEBUG, 'results %s' % str( self._results ) )
+		for (directory, filename, store_dir) in self._results:
+			try:
+				if not store_dir:
+					store_dir = self.get_store_dir()
+				self.display( OUTPUT_DEBUG, 'Storing result: %s:%s -> %s' % (host, path.join(directory, filename), path.join(store_dir,filename)))
+
+				success = self._data_access.store( store_dir, host, directory, filename ) and success
 			except:
 				displayExcept()
 				success = False
 
-			self._data_access.remove( h, p, f )
+			self._data_access.remove(host, directory, filename)
 
 		if not success:
 			self.state = ERROR
@@ -164,16 +194,16 @@ class Task(Message):
 	def id(self):
 		return self._id
 
-	def subprocess(self,cmdline,path):
+	def subprocess(self,cmdline,run_dir=None):
 		rcode = -1
 		p = None
 		pid = None
 		try:
-			if path == None:
-				path = self._root
+			if run_dir == None:
+				run_dir = self._root
 
 			self.display( OUTPUT_DEBUG, 'starting sub process' )
-			p = Popen( cmdline, shell=True, cwd=path )
+			p = Popen( cmdline, shell=True, cwd=run_dir )
 			if not p == None:
 				pid = p.pid
 				self.display( OUTPUT_DEBUG, 'writing pid file' )
@@ -215,10 +245,21 @@ class Task(Message):
 		
 		return rcode
 
-	def addResult(self,sub_path, path,name):
-		f = ( sub_path, self.hostname, path, name )
-		self.display( OUTPUT_DEBUG, 'result added %s:%s/%s for store:%s' % ( self.hostname, path, name, sub_path ) )
-		self._result.append( f )
+	def addResult(self, *path_pieces, **kwargs):
+		store_dir = kwargs.get('store_dir')
+		result_file = path.join( *path_pieces )
+		entry = ( path.dirname(result_file), path.basename(result_file), store_dir )
+		if entry not in self._results:
+			self._results.append( entry )
+			self.display( OUTPUT_DEBUG, 'Added result file: %s' % result_file )
+
+	def addLog(self, *path_pieces, **kwargs):
+		store_dir = kwargs.get('store_dir')
+		log_file = path.join( *path_pieces )
+		entry = ( path.dirname(log_file), path.basename(log_file), store_dir )
+		if entry not in self._logs:
+			self._logs.append( entry )
+			self.display( OUTPUT_DEBUG, 'Added log file: %s' % log_file )
 		
 	@property
 	def slots(self):
@@ -261,7 +302,7 @@ class Task(Message):
 		raise NotImplementedError
 
 	def result(self):
-		return self._result
+		return self._results
 		
 	def display(self,level, text):
 		if not self.worker == None and not self.hostname == None:

@@ -102,6 +102,7 @@ class WorkerNode(MPINode):
 			result = True
 			if task.state == NEW:
 				task.worker = self._rank
+				task.worker_hostname = self._name
 				task.hostname = self._name
 
 				if isinstance( task, ControlTask ):
