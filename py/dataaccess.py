@@ -13,10 +13,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
-from os import environ
-import os.path as path
+from collections import namedtuple
+import os
+import subprocess
 
-from util import display, system, OUTPUT_MINOR, OUTPUT_DEBUG
+from util import display, loadConfig, OUTPUT_MINOR, OUTPUT_DEBUG, OUTPUT_ERROR
 
 class DataAccess(object):
 
@@ -25,8 +26,9 @@ class DataAccess(object):
 	_store_host = None
 	_config = None
 	_host = None
-
 	_ssh_o = None
+
+	CommandResult = namedtuple('CommandResult', ['returncode','stdout','stderr'])
 
 	def __init__(self, configFile):
 
@@ -59,18 +61,25 @@ class DataAccess(object):
 			if 'StrictHostKeyChecking' in self._config['dataaccess']:
 				strict = True
 
-		if system( 'stat %s/hostname > /dev/null 2>&1' % environ['STARSPATH'] ) == 0:
-			f = open( environ['STARSPATH'] + '/hostname' )
+		res = self.__run_shell_cmd('stat %s/hostname' % os.environ['STARSPATH'])
+		if res.returncode == 0:
+			f = open( os.environ['STARSPATH'] + '/hostname' )
 			self._host = f.read().strip()
 			f.close()
 		else:
-			self._host = environ['HOSTNAME']
+			self._host = os.environ['HOSTNAME']
 		self._ssh_o = ''
 
 		if not strict:
 			self._ssh_o = '-o StrictHostKeyChecking=no'
 		if key is not None:
 			self._shh_o = '-i %s %s' % ( key, self._ssh_o )
+
+	@staticmethod
+	def __run_shell_cmd( command ):
+		proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+		output,error = proc.communicate()
+		return DataAccess.CommandResult(proc.returncode, output.strip(), error.strip())
 
 	def setStore(self, storeHost, storePath, storeGlobal):
 		#if not storeHost == None:
@@ -81,57 +90,55 @@ class DataAccess(object):
 		self._global = storeGlobal
 		display( OUTPUT_DEBUG, "data_access configured for store host %s, store path %s, and global %s." % ( storeHost, storePath, str(storeGlobal) ) )
 
-
 	def store(self,subPath,fileHost,filePath,fileName):
-                cmdline = "exit 1"
-                result = False
+		cmdline = "exit 1"
 
 		display( OUTPUT_DEBUG, "data_access.store called" )
 
-                if not fileName.find('*') == -1:
+		if not fileName.find('*') == -1:
 			display( OUTPUT_DEBUG, "data_access.store multiple files" )
-                        if self._global:
+			if self._global:
 				display( OUTPUT_DEBUG, "data_access.store local file" )
-                                cmdline = "cp %s/%s %s/%s/" % ( filePath, fileName, self._store_path, subPath )
-                        else:
-                                if not fileHost == None:
+				cmdline = "cp %s/%s %s/%s/" % ( filePath, fileName, self._store_path, subPath )
+			else:
+				if not fileHost == None:
 					display( OUTPUT_DEBUG, "data_access.store remote file, remote store" )
-                                        cmdline = "scp %s %s:%s/%s %s:%s/%s/" % ( self._ssh_o, fileHost, filePath, fileName, self._store_host, self._store_path, subPath )
-                                else:
+					cmdline = "scp %s %s:%s/%s %s:%s/%s/" % ( self._ssh_o, fileHost, filePath, fileName, self._store_host, self._store_path, subPath )
+				else:
 					display( OUTPUT_DEBUG, "data_access.store remote file, local store" )
-                                        cmdline = "scp %s %s/%s %s:%s/%s/" % ( self._ssh_o, filePath, fileName, self._store_host, self._store_path, subPath )
-                else:
+					cmdline = "scp %s %s/%s %s:%s/%s/" % ( self._ssh_o, filePath, fileName, self._store_host, self._store_path, subPath )
+		else:
 			display( OUTPUT_DEBUG, "data_access.store single file" )
-                        if self._global:
+			if self._global:
 				display( OUTPUT_DEBUG, "data_access.store local file" )
-                                cmdline = "mv %s/%s %s/%s/%s" % ( filePath, fileName, self._store_path, subPath, fileName )
-                        else:
-                                if not fileHost == None:
+				cmdline = "mv %s/%s %s/%s/%s" % ( filePath, fileName, self._store_path, subPath, fileName )
+			else:
+				if not fileHost == None:
 					display( OUTPUT_DEBUG, "data_access.store remote file, remote store" )
-                                        cmdline = "scp %s %s:%s/%s %s:%s/%s/" % ( self._ssh_o, fileHost, filePath, fileName, self._store_host, self._store_path, subPath )
-                                else:
+					cmdline = "scp %s %s:%s/%s %s:%s/%s/" % ( self._ssh_o, fileHost, filePath, fileName, self._store_host, self._store_path, subPath )
+				else:
 					display( OUTPUT_DEBUG, "data_access.store remote file, local store" )
-                                        cmdline = "scp %s %s/%s %s:%s/%s/" % ( self._ssh_o, filePath, fileName, self._store_host, self._store_path, subPath )
+					cmdline = "scp %s %s/%s %s:%s/%s/" % ( self._ssh_o, filePath, fileName, self._store_host, self._store_path, subPath )
 
 		display( OUTPUT_DEBUG, 'data_access' )
 		self.touchPath( self._store_host, "%s/%s" % (self._store_path, subPath) )
 
-                display( OUTPUT_DEBUG, "running: %s" % cmdline )
+		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 
-                if 0 == system( cmdline + ' > /dev/null 2>&1' ):
-                        result = True
-
-		if result:
+		res = self.__run_shell_cmd( cmdline )
+		if res.returncode == 0:
 			if not fileHost == None:
 				display( OUTPUT_MINOR, "stored file %s:%s/%s in store:%s/" % ( fileHost, filePath, fileName, subPath ) )
 			else:
 				display( OUTPUT_MINOR, "stored file %s/%s in store:%s/" % ( filePath, fileName, subPath ) )
-
-		return result
+			return True
+		else:
+			display( OUTPUT_ERROR, 'Unable to store %s:%s/%s' % (fileHost or 'localhost', filePath, fileName))
+			display( OUTPUT_ERROR, '%s' % res.stderr )
+			return False	
 
 	def remove(self,fileHost,filePath,fileName):
 		cmdline = 'exit 1'
-		result = False
 
 		if self._global or fileHost == None:
 			cmdline = "rm -f %s/%s" % ( filePath, fileName )
@@ -140,13 +147,17 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, 'running: %s' % cmdline )
 
-		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
-			display( OUTPUT_MINOR, "removed %s" % fileName )
+		res = self.__run_shell_cmd(cmdline)
+		if res.returncode == 0:
+			display( OUTPUT_MINOR, 'Removed %s' % fileName )
+			return True
+		else:
+			display( OUTPUT_ERROR, 'Unable to remove %s:%s/%s' % (fileHost or 'localhost', filePath, fileName) )
+			display( OUTPUT_ERROR, '%s' % res.stderr )
+			return False
 
 	def retrieve(self,subPath,filePath,fileName):
 		cmdline = "exit 1"
-
-		result = False
 
 		if self._global:
 			cmdline = "ln -s %s/%s/%s %s/%s" % ( self._store_path, subPath, fileName, filePath, fileName )
@@ -157,15 +168,17 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 
-		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
+		res = self.__run_shell_cmd(cmdline)
+		if res.returncode == 0:
 			display( OUTPUT_MINOR, "retrieved file %s from store:%s/" % ( fileName, subPath ) )
-			result = True
-
-		return result
+			return True
+		else:
+			display( OUTPUT_ERROR, 'Unable to retrieve %s from store:%s' % ( fileName, subPath ) )
+			display( OUTPUT_ERROR, '%s' % res.stderr )
+			return False
 
 	def deploy(self,filePath,fileName,destHost,destPath,destName):
 		cmdline = "exit 1"
-		result = False
 		if self._global:
 			cmdline = "cp %s/%s %s/%s" % ( filePath, fileName, destPath, destName )
 		else:
@@ -175,14 +188,18 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 
-		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
+		res = self.__run_shell_cmd(cmdline)
+		if res.returncode == 0:
 			display( OUTPUT_MINOR, "deployed file %s to %s:%s" % ( fileName, destHost, destPath ) )
-			result = True
-		return result
+			return True
+		else:
+			display( OUTPUT_ERROR, 'Unable to deploy %s to %s:%s' % ( fileName, destHost, destPath ) )
+			display( OUTPUT_ERROR, '%s' % res.stderr )
+			return False
 
 	def deploy_direct(self,srcHost,srcPath,srcName,destHost,destPath,destName):
 		cmdline = 'exit 1'
-		result = False
+
 		if self._global:
 			cmdline = "cp %s/%s %s/%s" % ( srcPath, srcName, destPath, destName )
 		else:
@@ -193,14 +210,19 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 
-		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
+		res = self.__run_shell_cmd(cmdline)
+		if res.returncode == 0:
 			display( OUTPUT_MINOR, "deployed file %s:%s/%s to %s:%s" % ( srcHost, srcPath, srcName, destHost, destPath ) )
-			result = True
-		return result
+			return True
+		else:
+			display( OUTPUT_ERROR, 'Direct deploy failed')
+			display( OUTPUT_ERROR, 'Command: %s' % cmdline )
+			display( OUTPUT_ERROR, '%s' % res.stderr )
+			return False
 
 	def collect(self,filePath, fileName, srcHost, srcPath, srcName ):
 		cmdline = "exit 1"
-		result = False
+
 		if self._global or srcHost == None:
 			cmdline = "ln -s %s/%s %s/%s" % (srcPath, srcName, filePath, fileName )
 		else:
@@ -208,14 +230,17 @@ class DataAccess(object):
 
 		self.touchPath( None, filePath )
 
-		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
-			display( OUTPUT_MINOR, "collected file %s/%s from %s:%s" % ( filePath, fileName, srcHost, srcPath ) )
-			result = True
-		return result
+		res = self.__run_shell_cmd(cmdline)
+		if res.returncode == 0:
+			display( OUTPUT_MINOR, "Collected file %s/%s from %s:%s" % ( filePath, fileName, srcHost, srcPath ) )
+			return True
+		else:
+			display( OUTPUT_ERROR, "Unable to collect file %s/%s from %s:%s" % ( filePath, fileName, srcHost, srcPath ) )
+			display( OUTPUT_ERROR, '%s' % res.stderr )
+			return False
 
 	def checkStore(self,subPath, fileName ):
 		cmdline = "exit 1"
-		result = False
 
 		if self._global:
 			cmdline = "stat %s/%s/%s" % ( self._store_path, subPath, fileName )
@@ -224,22 +249,31 @@ class DataAccess(object):
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 
-		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
-			display( OUTPUT_DEBUG, "found file %s in store:%s/" % ( fileName, subPath ) )
-			result = True
-		return result
+		res = self.__run_shell_cmd(cmdline)
+		if res.returncode == 0:
+			display( OUTPUT_DEBUG, "Found file %s in store:%s/" % ( fileName, subPath ) )
+			return True
+		else:
+			display( OUTPUT_MINOR, "Unable to find file %s in store:%s/" % ( fileName, subPath ) )
+			display( OUTPUT_DEBUG, '%s' % res.stderr )
+			return False
 
 	def touchPath(self,fileHost,filePath):
 		cmdline = "exit 1"
+
 		display( OUTPUT_DEBUG, "data_access.touchPath called" )
 		if self._global or fileHost == None:
-			display( OUTPUT_DEBUG, "data_access.touchPath local path" )
 			cmdline = "mkdir -p %s" % filePath
 		else:
-			display( OUTPUT_DEBUG, "data_access.touchPath remote path" )
 			cmdline = "ssh %s %s 'mkdir -p %s'" % ( self._ssh_o, fileHost, filePath )
 
 		display( OUTPUT_DEBUG, "running: %s" % cmdline )
 
-		if 0 == system( cmdline + ' > /dev/null 2>&1' ):
-			display( OUTPUT_DEBUG, "touched %s" % filePath )
+		res = self.__run_shell_cmd(cmdline)
+		if res.returncode == 0:
+			display( OUTPUT_DEBUG, "Created path: %s" % filePath)
+			return True
+		else:
+			display( OUTPUT_ERROR, "Unable to create path: %s" % filePath)
+			display( OUTPUT_ERROR, '%s' % res.stderr )
+			return False
