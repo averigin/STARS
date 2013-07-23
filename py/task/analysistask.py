@@ -71,4 +71,4 @@ class AnalysisTask(Task):
 		Run from the worker node.
 		'''
 		for (resource_subpath, deployed_path, resource_name) in self._resources:
-			shutil.rmtree( path.join(self._root, deployed_path, resource_name), ignore_errors=True )
+			os.system( "rm -rf '%s'" % path.join(self._root, deployed_path, resource_name) )
